@@ -1,0 +1,88 @@
+flowchart TB
+  %% =========================
+  %% RAG Notion — Infra (Local + Cloud)
+  %% =========================
+
+  %% ---------- Local (Dev) ----------
+  subgraph LOCAL["Local (Dev)"]
+    DevUser["Dev / Testeur"]
+    LocalAPI["API RAG (FastAPI)\nLocalhost"]
+    LocalIngest["Ingestion script\nPython (manual)"]
+    LocalEnv[".env (secrets locaux)\nNOTION/QDRANT/COHERE/MISTRAL/LANGSMITH"]
+  end
+
+  %% ---------- Cloud (Prod) ----------
+  subgraph CLOUD["Cloud (Prod)"]
+    subgraph OFFLINE["OFFLINE (Build / Ingestion)"]
+      Prefect["Prefect Cloud\nOrchestration + Scheduling"]
+      CRJob["Cloud Run Jobs\n(offline-ingest container)"]
+    end
+
+    subgraph ONLINE["ONLINE (Serve / API)"]
+      CRService["Cloud Run Service\n(rag-api container)"]
+    end
+
+    subgraph OBS["Observability"]
+      LangSmith["LangSmith (Build)\nTracing + Evals"]
+      Langfuse["Langfuse (Prod)\nMonitoring + Dashboards"]
+      OTel["OpenTelemetry (optionnel)\nTraces/Metrics"]
+      Grafana["Grafana Stack (optionnel)\nTempo/Prometheus/Loki"]
+    end
+
+    subgraph SECRETS["Secrets"]
+      SecretMgr["Secret Manager\n(prod)"]
+    end
+  end
+
+  %% ---------- External Services ----------
+  subgraph EXT["Services externes"]
+    Notion["Notion API"]
+    Qdrant["Qdrant Cloud\n(Vector DB)"]
+    Cohere["Cohere API\nEmbeddings + Rerank"]
+    Mistral["Mistral API\nLLM Generation"]
+  end
+
+  %% ---------- Local flows ----------
+  DevUser -->|HTTP| LocalAPI
+  LocalAPI -->|HTTPS| Qdrant
+  LocalAPI -->|HTTPS| Cohere
+  LocalAPI -->|HTTPS| Mistral
+  LocalIngest -->|HTTPS| Notion
+  LocalIngest -->|HTTPS| Cohere
+  LocalIngest -->|HTTPS| Qdrant
+  LocalEnv -.-> LocalAPI
+  LocalEnv -.-> LocalIngest
+  LocalAPI -.->|traces| LangSmith
+
+  %% ---------- Cloud Offline flows ----------
+  Prefect -->|trigger| CRJob
+  CRJob -->|HTTPS| Notion
+  CRJob -->|HTTPS| Cohere
+  CRJob -->|HTTPS| Qdrant
+  SecretMgr -.-> CRJob
+  Prefect -.->|run logs| CRJob
+
+  %% ---------- Cloud Online flows ----------
+  User["Utilisateur / App (Prod)"] -->|HTTPS| CRService
+  CRService -->|HTTPS| Qdrant
+  CRService -->|HTTPS| Cohere
+  CRService -->|HTTPS| Mistral
+  SecretMgr -.-> CRService
+
+  %% ---------- Observability flows ----------
+  CRService -.->|traces (build)| LangSmith
+  CRService -.->|traces/metrics (prod)| Langfuse
+  CRService -.->|OTel| OTel
+  CRJob -.->|OTel| OTel
+  OTel --> Grafana
+
+  %% ---------- Notes ----------
+  classDef local fill:#f6f6f6,stroke:#999,stroke-width:1px
+  classDef cloud fill:#eef7ff,stroke:#4a90e2,stroke-width:1px
+  classDef ext fill:#fff7e6,stroke:#f5a623,stroke-width:1px
+  classDef obs fill:#f3efff,stroke:#7b61ff,stroke-width:1px
+
+  class DevUser,LocalAPI,LocalIngest,LocalEnv local
+  class Prefect,CRJob,CRService,SecretMgr cloud
+  class Notion,Qdrant,Cohere,Mistral ext
+  class LangSmith,Langfuse,OTel,Grafana obs
