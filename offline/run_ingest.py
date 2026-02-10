@@ -34,9 +34,17 @@ def main() -> None:
     g = parser.add_mutually_exclusive_group(required=True)
     g.add_argument("--database-id", type=str, help="ID de la base Notion à indexer")
     g.add_argument("--page-ids", type=str, help="IDs de pages séparés par des virgules")
+    parser.add_argument("--incremental", action="store_true", help="Ingestion incrémentale (checkpoint)")
+    parser.add_argument("--checkpoint-path", type=str, default=None, help="Chemin du fichier checkpoint")
     args = parser.parse_args()
 
     notion = NotionSettings()
+    rag = get_rag_settings()
+    if args.incremental:
+        rag = rag.model_copy(update={"incremental": True})
+        if args.checkpoint_path:
+            rag = rag.model_copy(update={"checkpoint_path": args.checkpoint_path})
+
     page_ids = None
     database_id = None
     if args.page_ids:
@@ -48,6 +56,7 @@ def main() -> None:
         notion.token,
         page_ids=page_ids,
         database_id=database_id,
+        rag_settings=rag,
     )
     logger.info("Résultat: %s", result)
 

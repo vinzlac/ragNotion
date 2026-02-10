@@ -1,0 +1,20 @@
+# Image ingestion Notion → Qdrant (PRD OFF-1.3, Cloud Run Job)
+# Build: docker build -f Dockerfile.offline -t rag-notion-offline .
+# Run:   docker run --env-file .env rag-notion-offline --database-id <ID>
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# uv pour install reproductible
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ENV UV_SYSTEM_PYTHON=1
+
+COPY pyproject.toml .
+COPY shared/ shared/
+COPY offline/ offline/
+RUN uv sync --no-dev
+
+ENV PYTHONPATH=/app
+# Entrée : args passés en CMD (--database-id ou --page-ids)
+ENTRYPOINT ["uv", "run", "python", "-m", "offline.run_ingest"]
+CMD ["--database-id", ""]

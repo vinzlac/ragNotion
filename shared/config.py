@@ -34,9 +34,30 @@ class MistralSettings(BaseSettings):
 
 
 class LangSmithSettings(BaseSettings):
+    """Config LangSmith (site : LANGSMITH_TRACING, ENDPOINT, API_KEY, PROJECT)."""
     model_config = SettingsConfigDict(env_prefix="LANGSMITH_", extra="ignore")
-    api_key: str | None = Field(None, description="Clé LangSmith (build)")
-    tracing_v2: bool = Field(default=True, description="Activer tracing LangChain")
+    tracing: bool = Field(default=True, description="Activer le tracing (LANGSMITH_TRACING)")
+    api_key: str | None = Field(None, description="Clé API LangSmith (build)")
+    endpoint: str = Field(
+        default="https://api.smith.langchain.com",
+        description="URL API LangSmith (ex: https://eu.api.smith.langchain.com)",
+    )
+    project: str | None = Field(None, description="Nom du projet dans LangSmith (ex: RagNotion)")
+
+
+class APISettings(BaseSettings):
+    """Limites et flags API (PRD OPS-1.2, GOV-1.1)."""
+    model_config = SettingsConfigDict(env_prefix="API_", extra="ignore")
+    rate_limit_chat: str = Field(default="10/minute", description="Rate limit pour POST /chat (ex: 10/minute)")
+    feature_rerank: bool | None = Field(default=None, description="Override rerank (si None, utilise RAG_RERANK_ENABLED)")
+
+
+class LangfuseSettings(BaseSettings):
+    """Prod : monitoring et coût (PRD observabilité prod)."""
+    model_config = SettingsConfigDict(env_prefix="LANGFUSE_", extra="ignore")
+    secret_key: str | None = Field(None, description="Clé secrète Langfuse")
+    public_key: str | None = Field(None, description="Clé publique Langfuse")
+    host: str = Field(default="https://cloud.langfuse.com", description="URL Langfuse")
 
 
 # Paramètres RAG externalisables (PRD §9)
@@ -55,6 +76,10 @@ class RAGPipelineSettings(BaseSettings):
 
     # Traçabilité
     rag_version: str = Field(default="v1", description="Version du pipeline pour logs")
+
+    # Ingestion incrémentale (OFF-2.4)
+    incremental: bool = Field(default=False, description="Activer ingestion incrémentale (checkpoint)")
+    checkpoint_path: str | None = Field(default=None, description="Chemin du fichier checkpoint (défaut: data/ingest_checkpoint.json)")
 
 
 def get_rag_settings() -> RAGPipelineSettings:

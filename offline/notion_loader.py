@@ -114,3 +114,47 @@ async def load_notion_documents(
         documents.append(doc)
 
     return documents
+
+
+async def list_notion_page_versions(
+    notion_token: str,
+    *,
+    page_ids: list[str] | None = None,
+    database_id: str | None = None,
+) -> dict[str, str]:
+    """
+    Retourne page_id → last_edited_time pour détection delta (ingestion incrémentale).
+    Ne charge pas le contenu des pages.
+    """
+    client = AsyncClient(auth=notion_token)
+    result: dict[str, str] = {}
+
+    if page_ids:
+        for page_id in page_ids:
+            try:
+                page = await client.pages.retrieve(page_id=page_id)
+                if page.get("last_edited_time"):
+                    result[page_id] = page["last_edited_time"]
+            except Exception as e:
+                logger.warning("list_notion_page_versions %s: %s", page_id, e)
+        return result
+
+    if database_id:
+        cursor: str | None = None
+        while True:
+            params: dict[str, Any] = {"database_id": database_id}
+            if cursor:
+                params["start_cursor"] = cursor
+            resp = await client.databases.query(**params)
+            for item in resp.get("results", []):
+                if item.get("object") == "page":
+                    pid = item.get("id")
+                    last = item.get("last_edited_time")
+                    if pid and last:
+                        result[pid] = last
+            cursor = resp.get("next_cursor")
+            if not cursor:
+                break
+        return result
+
+    raise ValueError("Fournir page_ids ou database_id")

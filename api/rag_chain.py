@@ -95,12 +95,16 @@ def build_rag_chain(
     Chaîne LCEL : retriever → (optionnel rerank) → format_docs → prompt → LLM → str.
     Retourne un runnable qui prend {"question": str} et produit (answer, sources).
     """
-    from shared.config import CohereSettings, MistralSettings, QdrantSettings
+    from shared.config import APISettings, CohereSettings, MistralSettings, QdrantSettings
 
     qdrant = qdrant or QdrantSettings()
     cohere = cohere or CohereSettings()
     mistral = mistral or MistralSettings()
     rag_settings = rag_settings or get_rag_settings()
+    # Feature flag : override rerank (PRD GOV-1.1)
+    api_cfg = APISettings()
+    if api_cfg.feature_rerank is not None:
+        rag_settings = rag_settings.model_copy(update={"rerank_enabled": api_cfg.feature_rerank})
 
     retriever = build_retriever(qdrant, cohere, rag_settings)
     prompt = get_rag_prompt(rag_settings.rag_version)

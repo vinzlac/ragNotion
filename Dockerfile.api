@@ -1,0 +1,18 @@
+# Image API RAG FastAPI (PRD ON-1.2, Cloud Run Service)
+# Build: docker build -f Dockerfile.api -t rag-notion-api .
+# Run:   docker run -p 8000:8000 --env-file .env rag-notion-api
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ENV UV_SYSTEM_PYTHON=1
+
+COPY pyproject.toml .
+COPY shared/ shared/
+COPY api/ api/
+RUN uv sync --no-dev
+
+ENV PYTHONPATH=/app
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

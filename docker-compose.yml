@@ -1,0 +1,22 @@
+# Dev local : API RAG (optionnel : Qdrant local)
+# Usage: docker compose up api
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # Secrets à fournir via .env (NOTION_TOKEN, QDRANT_*, COHERE_*, MISTRAL_*)
+
+  # Optionnel : Qdrant local pour tests sans Cloud
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - qdrant_storage:/qdrant/storage
+# volumes:
+#   qdrant_storage:

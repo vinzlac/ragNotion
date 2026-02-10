@@ -1,0 +1,5 @@
+[
+  {"id": "q1", "question": "Quelle est la politique de congés ?", "expected_keywords": []},
+  {"id": "q2", "question": "Comment contacter l'équipe support ?", "expected_keywords": []},
+  {"id": "q3", "question": "Où trouver la documentation technique ?", "expected_keywords": []}
+]
