@@ -13,10 +13,10 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 os.chdir(_REPO_ROOT)
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 load_dotenv(_REPO_ROOT / ".env")
 
-from api.rag_chain import build_rag_chain
+from api.rag_chain import build_rag_chain  # noqa: E402
 
 
 def load_dataset(path: str) -> list[dict]:

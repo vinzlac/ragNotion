@@ -12,12 +12,12 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
-from prefect import flow
-from shared.config import NotionSettings, get_rag_settings
-from offline.pipeline import run_offline_pipeline
+from prefect import flow  # noqa: E402
+from shared.config import NotionSettings, get_rag_settings  # noqa: E402
+from offline.pipeline import run_offline_pipeline  # noqa: E402
 
 
 @flow(name="rag-notion-ingest", retries=2, retry_delay_seconds=60)

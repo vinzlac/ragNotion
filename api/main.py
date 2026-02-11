@@ -11,20 +11,20 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
-import time
+import time  # noqa: E402
 
-from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel, Field
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from fastapi import FastAPI, HTTPException, Request  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+from slowapi import Limiter, _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
+from slowapi.util import get_remote_address  # noqa: E402
 
-from api.rag_chain import build_rag_chain
-from shared.config import APISettings, LangSmithSettings
-from shared.schemas import ChatResponse
+from api.rag_chain import build_rag_chain  # noqa: E402
+from shared.config import APISettings, LangSmithSettings  # noqa: E402
+from shared.schemas import ChatResponse  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,

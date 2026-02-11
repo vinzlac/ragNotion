@@ -13,12 +13,12 @@ from typing import Any
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
-from notion_client import AsyncClient
+from notion_client import AsyncClient  # noqa: E402
 
-from shared.config import NotionSettings
+from shared.config import NotionSettings  # noqa: E402
 
 
 async def _iterate_block_children(client: AsyncClient, block_id: str):

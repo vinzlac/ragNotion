@@ -1,6 +1,5 @@
 """Tests unitaires shared (config, schémas)."""
-import pytest
-from shared.config import RAGPipelineSettings, get_rag_settings
+from shared.config import RAGPipelineSettings
 from shared.schemas import ChatSource, ChatResponse
 
 
