@@ -9,9 +9,33 @@ from typing import Any
 
 from langchain_core.documents import Document
 from notion_client import AsyncClient
-from notion_client.helpers import iterate_block_children
 
 logger = logging.getLogger(__name__)
+
+
+async def _query_data_source(
+    client: AsyncClient, source_id: str, start_cursor: str | None = None
+) -> dict:
+    """Interroge une base via data_sources.query (API Notion actuelle)."""
+    params: dict[str, Any] = {"data_source_id": source_id}
+    if start_cursor:
+        params["start_cursor"] = start_cursor
+    return await client.data_sources.query(**params)
+
+
+async def _iterate_block_children(client: AsyncClient, block_id: str):
+    """Itère sur tous les blocs enfants (pagination API Notion)."""
+    cursor: str | None = None
+    while True:
+        params: dict[str, Any] = {"block_id": block_id}
+        if cursor:
+            params["start_cursor"] = cursor
+        resp = await client.blocks.children.list(**params)
+        for block in resp.get("results", []):
+            yield block
+        cursor = resp.get("next_cursor")
+        if not cursor:
+            break
 
 
 def _block_to_text(block: dict[str, Any]) -> str:
@@ -51,7 +75,7 @@ async def fetch_page_content(client: AsyncClient, page_id: str) -> tuple[str, st
         last_edited = page.get("last_edited_time")
 
         parts: list[str] = []
-        async for block in iterate_block_children(client, page_id):
+        async for block in _iterate_block_children(client, page_id):
             if block.get("type") == "child_page":
                 # Sous-page : on pourrait récurser ou ignorer
                 continue
@@ -65,6 +89,81 @@ async def fetch_page_content(client: AsyncClient, page_id: str) -> tuple[str, st
         return "", "", None
 
 
+async def _collect_all_page_ids(
+    client: AsyncClient,
+    root_page_ids: list[str],
+    seen: set[str] | None = None,
+) -> list[str]:
+    """
+    À partir de pages racines, retourne toutes les page_id à indexer :
+    les pages elles-mêmes, leurs sous-pages (child_page), et les lignes
+    des tables (child_database) incluses dans ces pages.
+    """
+    if seen is None:
+        seen = set()
+    result: list[str] = []
+    for page_id in root_page_ids:
+        if page_id in seen:
+            continue
+        seen.add(page_id)
+        result.append(page_id)
+        # Page = base en pleine page (ex. Journal) : les lignes sont des pages
+        try:
+            cursor = None
+            while True:
+                resp = await _query_data_source(client, page_id, start_cursor=cursor)
+                for item in resp.get("results", []):
+                    if item.get("object") == "page":
+                        pid = item["id"]
+                        if pid not in seen:
+                            sub = await _collect_all_page_ids(client, [pid], seen)
+                            result.extend(sub)
+                cursor = resp.get("next_cursor")
+                if not cursor:
+                    break
+        except Exception:
+            pass
+        try:
+            async for block in _iterate_block_children(client, page_id):
+                t = block.get("type")
+                if t == "child_page":
+                    child_id = block.get("id")
+                    if child_id and child_id not in seen:
+                        sub = await _collect_all_page_ids(client, [child_id], seen)
+                        result.extend(sub)
+                elif t == "child_database":
+                    db_id = block.get("id")
+                    if not db_id:
+                        continue
+                    try:
+                        cursor = None
+                        while True:
+                            resp = await _query_data_source(client, db_id, start_cursor=cursor)
+                            for item in resp.get("results", []):
+                                if item.get("object") == "page":
+                                    pid = item["id"]
+                                    if pid not in seen:
+                                        sub = await _collect_all_page_ids(client, [pid], seen)
+                                        result.extend(sub)
+                            cursor = resp.get("next_cursor")
+                            if not cursor:
+                                break
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning("_collect_all_page_ids %s: %s", page_id, e)
+    return result
+
+
+async def expand_page_ids(notion_token: str, root_page_ids: list[str]) -> list[str]:
+    """
+    Étend les IDs de pages racines à toutes les pages à indexer
+    (sous-pages + lignes des tables incluses). Pour cohérence liste / ingestion.
+    """
+    client = AsyncClient(auth=notion_token)
+    return await _collect_all_page_ids(client, root_page_ids)
+
+
 async def load_notion_documents(
     notion_token: str,
     *,
@@ -73,20 +172,18 @@ async def load_notion_documents(
 ) -> list[Document]:
     """
     Charge des pages Notion en Documents LangChain.
-    Soit page_ids est fourni, soit on récupère les pages d'une database_id.
+    Soit page_ids (la page + ses sous-pages + les lignes des tables incluses),
+    soit database_id (toutes les lignes de la base).
     """
     client = AsyncClient(auth=notion_token)
     ids_to_fetch: list[str] = []
 
     if page_ids:
-        ids_to_fetch = list(page_ids)
+        ids_to_fetch = await _collect_all_page_ids(client, list(page_ids))
     elif database_id:
-        cursor: str | None = None
+        cursor = None
         while True:
-            params: dict[str, Any] = {"database_id": database_id}
-            if cursor:
-                params["start_cursor"] = cursor
-            resp = await client.databases.query(**params)
+            resp = await _query_data_source(client, database_id, start_cursor=cursor)
             for item in resp.get("results", []):
                 if item.get("object") == "page":
                     ids_to_fetch.append(item["id"])
@@ -140,12 +237,9 @@ async def list_notion_page_versions(
         return result
 
     if database_id:
-        cursor: str | None = None
+        cursor = None
         while True:
-            params: dict[str, Any] = {"database_id": database_id}
-            if cursor:
-                params["start_cursor"] = cursor
-            resp = await client.databases.query(**params)
+            resp = await _query_data_source(client, database_id, start_cursor=cursor)
             for item in resp.get("results", []):
                 if item.get("object") == "page":
                     pid = item.get("id")

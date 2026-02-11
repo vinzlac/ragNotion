@@ -18,7 +18,7 @@ from qdrant_client.http import models as qdrant_models
 from shared.config import CohereSettings, QdrantSettings, RAGPipelineSettings, get_rag_settings
 
 from .checkpoint import get_checkpoint_path, load_checkpoint, save_checkpoint
-from .notion_loader import list_notion_page_versions, load_notion_documents
+from .notion_loader import expand_page_ids, list_notion_page_versions, load_notion_documents
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,9 @@ def run_offline_pipeline(
     ensure_collection(client, qdrant.collection_name, vector_size)
 
     # État actuel Notion (page_id → last_edited_time)
+    # Si page_ids fournis : étendre aux sous-pages et aux lignes des tables
+    if page_ids is not None:
+        page_ids = asyncio.run(expand_page_ids(notion_token, page_ids))
     current_versions = asyncio.run(
         list_notion_page_versions(
             notion_token,

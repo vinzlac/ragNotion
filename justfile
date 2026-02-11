@@ -21,6 +21,21 @@ ingest-incremental database_id:
 prefect-ingest database_id:
     uv run python -m offline.prefect_flow --database-id {{ database_id }}
 
+# Lister les pages Notion (et sous-pages) sans indexer
+list-pages database_id:
+    uv run python -m offline.list_notion_pages --database-id {{ database_id }}
+
+list-pages-json database_id:
+    uv run python -m offline.list_notion_pages --database-id {{ database_id }} --json
+
+# Par IDs de pages racines (ex: just list-pages-by-ids "id1,id2")
+list-pages-by-ids page_ids:
+    uv run python -m offline.list_notion_pages --page-ids {{ page_ids }}
+
+# Debug : afficher blocs + query pour une page (ex: just list-pages-debug "040d3dc7e3dc49bc917be8597e647309")
+list-pages-debug page_ids:
+    uv run python -m offline.list_notion_pages --page-ids {{ page_ids }} --debug
+
 # Aide ingestion
 ingest:
     @just --list | grep ingest
